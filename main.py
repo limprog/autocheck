@@ -3,10 +3,10 @@ from setting import *
 from task import Task
 import pandas as pd
 import os
-import linecache
+import subprocess
 
 def check(tasks, user):
-    sul = os.path.exists(os.path.join(USERS_DIR, user, SUL_NAME))
+    sul = os.path.exists(os.path.join(USERS_DIR, user, PROGRAM_DIR, SUL_NAME))
     data = pd.read_csv(os.path.join("res.csv"))
     res = []
 
@@ -20,28 +20,37 @@ def check(tasks, user):
 
     else:
         res.append(user)
-        with open(os.path.join(USERS_DIR, user, "res.txt"), 'w') as f:
+        with open(os.path.join(USERS_DIR, user, PROGRAM_DIR, "res.txt"), 'w') as f:
             f.write("Результат\n")
+
+        notes = ""
         for task in tasks:
             score_temp = 0
 
             for i in task:
-                with open(os.path.join(USERS_DIR, user, "input.txt"), "w") as f:
+                error = ""
+                with open(os.path.join(USERS_DIR, user, PROGRAM_DIR, "input.txt"), "w") as f:
                     f.write(i[0])
 
-                os.system(f"cd {os.path.join(USERS_DIR, user)}; ./{SUL_NAME}")
-                with open(os.path.join(USERS_DIR, user, "output.txt"), "r") as f:
-                    user_answ = f.read()
-                    if task.score_str == -1:
-                        print(user_answ.split("\n")[1])
-                        if user_answ == i[1]:
-                            score_temp += 1
-                    else:
-                        if user_answ.split("\n")[task.score_str] == i[1]:
-                            score_temp += 1
+                try:
+                    subprocess.run(f"cd {os.path.join(USERS_DIR, user, PROGRAM_DIR)}; ./{SUL_NAME}", shell=True, capture_output=True, text=True, timeout=TIME_OUT)
+                except:
+                    error = "TE"
+                if error == "":
+                    with open(os.path.join(USERS_DIR, user, PROGRAM_DIR, "output.txt"), "r+") as f:
+                        user_answ = f.read()
+                        if task.score_str == -1:
+                            # print(user_answ.split("\n")[1])
+                            if user_answ == i[1]:
+                                score_temp += 1
+                        else:
+                            if user_answ.split("\n")[task.score_str] == i[1]:
+                                score_temp += 1
+                else:
+                    notes = error
 
-                os.remove(os.path.join(USERS_DIR, user, "input.txt"))
-                os.remove(os.path.join(USERS_DIR, user, "output.txt"))
+                os.remove(os.path.join(USERS_DIR, user, PROGRAM_DIR, "input.txt"))
+                os.remove(os.path.join(USERS_DIR, user, PROGRAM_DIR, "output.txt"))
 
             score_final = 0
             if task.type == "FULL" and len(task) == score_temp:
@@ -49,10 +58,10 @@ def check(tasks, user):
             elif task.type == "PART":
                 score_final = int(score_temp / len(task) * task.score)
 
-            res.append(score_final)
-            with open(os.path.join(USERS_DIR, user, "res.txt"), "a") as f:
-                f.write(f"{str(task)}: {score_final}\n")
-
+            res.append(str(score_final) + notes)
+            print(notes)
+            with open(os.path.join(USERS_DIR, user, PROGRAM_DIR, "res.txt"), "a") as f:
+                f.write(f"{str(task)}: {score_final} {notes}\n")
 
         data.loc[len(data)] = res
         data.to_csv(os.path.join("res.csv"), index=False)
